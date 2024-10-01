@@ -3,13 +3,13 @@ import os
 
 app = Flask(__name__)
 
-# Configuration for file uploads
+# Config for file uploads
 app.config['UPLOAD_FOLDER'] = 'uploads/'
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # Max 100MB, ID requsted 
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # Max 100MB, ID requested this! 
 
 ALLOWED_EXTENSIONS = {'csv'}
 
-# Function to check if file is of allowed type
+# Check if file is of allowed type
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -29,7 +29,7 @@ def upload_file():
 
     for file in files:
         if file and allowed_file(file.filename):
-            # Save each file to the configured upload folder
+            # Save each file to the upload folder
             filename = file.filename
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             uploaded_files.append(filename)
