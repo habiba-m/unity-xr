@@ -44,9 +44,9 @@ def upload_file():
 @app.route('/send-to-unity/<filename>', methods=['GET'])
 def send_to_unity(filename):
     """
-    This endpoint will serve the uploaded file to Unity.
+    This endpoint will give the uploaded file to Unity.
     """
-    # Ensure the file exists in the upload directory
+    # Check if file exists in the upload directory
     file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     if os.path.exists(file_path):
         return send_file(file_path, as_attachment=True)
