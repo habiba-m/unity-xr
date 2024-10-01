@@ -6,46 +6,62 @@ using System.IO;
 
 public class FileManager : MonoBehaviour
 {
-    string path;
-    public Material mat = null; // Material to apply to the mesh
-    public GameObject parentObject; // Parent object to hold the point cloud
+    public Material mat = null;
+    public GameObject parentObject;
 
-    // Reference to the PointCloudImporter
     private PointCloudImporter pointCloudImporter;
 
-    // Function to open the file explorer and select CSV file
+    // Function to open the file explorer and select multiple CSV files
     public void OpenExplorer()
     {
-        path = EditorUtility.OpenFilePanel("Select CSV", "", "csv");
-        GetFile();
+        List<string> selectedPaths = new List<string>();
+
+        // Loop until the user cancels the file selection
+        while (true)
+        {
+            string path = EditorUtility.OpenFilePanel("Select CSV files", "", "csv");
+
+            if (string.IsNullOrEmpty(path))
+            {
+                break;
+            }
+
+            selectedPaths.Add(path);
+        }
+
+        // Process all selected files
+        foreach (string path in selectedPaths)
+        {
+            GetFile(path);
+        }
     }
 
     // Function to check if a file was selected and call import function
-    void GetFile()
+    void GetFile(string path)
     {
         if (!string.IsNullOrEmpty(path))
         {
-            ReadCSV();
-            ImportCSV();
+            ReadCSV(path);
+            ImportCSV(path);
         }
     }
 
     // Function to read the CSV and log data (optional for debugging)
-    void ReadCSV()
+    void ReadCSV(string path)
     {
         try
         {
             string csvData = File.ReadAllText(path);
-            Debug.Log("CSV Data:\n" + csvData);
+            Debug.Log("CSV Data from " + path + ":\n" + csvData);
         }
         catch (System.Exception e)
         {
-            Debug.LogError("Error reading CSV file: " + e.Message);
+            Debug.LogError("Error reading CSV file " + path + ": " + e.Message);
         }
     }
 
     // Function to import the CSV file and visualize the data
-    void ImportCSV()
+    void ImportCSV(string path)
     {
         try
         {
@@ -67,7 +83,7 @@ public class FileManager : MonoBehaviour
         }
         catch (System.Exception e)
         {
-            Debug.LogError("Error importing CSV file: " + e.Message);
+            Debug.LogError("Error importing CSV file " + path + ": " + e.Message);
         }
     }
 }
