@@ -41,17 +41,28 @@ def upload_file():
     })
 
 # Sending Files to Unity
-@app.route('/send-to-unity/<filename>', methods=['GET'])
-def send_to_unity(filename):
-    """
-    This endpoint will give the uploaded file to Unity.
-    """
+#@ap0p.route('/send-to-unity/<filename>', methods=['GET'])
+#def send_to_unity(filename):
+ #   """
+  #  This endpoint will give the uploaded file to Unity.
+   # """
     # Check if file exists in the upload directory
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if os.path.exists(file_path):
-        return send_file(file_path, as_attachment=True)
-    else:
-        return jsonify({"error": "File not found"}), 404
+    #file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    #if os.path.exists(file_path):
+     #   return send_file(file_path, as_attachment=True)
+    #else:
+     #   return jsonify({"error": "File not found"}), 404
+@app.route('/list-files', methods=['GET'])
+def list_files():
+    """
+    This endpoint returns the list of uploaded CSV files.
+    """
+    files = os.listdir(app.config['UPLOAD_FOLDER'])
+    csv_files = [f for f in files if allowed_file(f)]
+    
+    return jsonify({
+        "files": csv_files
+    })
 
 # Run the server
 if __name__ == '__main__':
@@ -59,3 +70,4 @@ if __name__ == '__main__':
     if not os.path.exists(app.config['UPLOAD_FOLDER']):
         os.makedirs(app.config['UPLOAD_FOLDER'])
     app.run(debug=True)
+
