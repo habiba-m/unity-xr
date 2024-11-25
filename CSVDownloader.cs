@@ -1,21 +1,33 @@
 using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Networking;
 using System.Collections;
-using System.IO;
 using System.Collections.Generic;
 
 public class CSVDownloader : MonoBehaviour
 {
     public string flaskServerURL = "http://localhost:5000";
+    public Button startButton, nextButton, backButton, refreshButton, pauseButton, continueButton;
+
     private List<string> downloadedFiles = new List<string>();
     private PointCloudImporter pointCloudImporter;
-    private List<GameObject> pointCloudObjects = new List<GameObject>();  // Store the point cloud GameObjects
+    private List<GameObject> pointCloudObjects = new List<GameObject>();
     private int currentTimeStepIndex = 0;
+    private bool isLooping = false; // Flag to control the loop
+    private bool isPaused = false; // Flag to control pause state
 
     void Start()
     {
         pointCloudImporter = FindObjectOfType<PointCloudImporter>();
         StartCoroutine(FetchFileList());
+
+        // Attach button listeners
+        startButton.onClick.AddListener(OnStartButton);
+        nextButton.onClick.AddListener(OnNextButton);
+        backButton.onClick.AddListener(OnBackButton);
+        refreshButton.onClick.AddListener(OnRefreshButton);
+        pauseButton.onClick.AddListener(OnPauseButton);
+        continueButton.onClick.AddListener(OnContinueButton);
     }
 
     IEnumerator FetchFileList()
@@ -54,46 +66,123 @@ public class CSVDownloader : MonoBehaviour
         }
 
         string csvData = request.downloadHandler.text;
-        downloadedFiles.Add(csvData);  // Store the CSV data directly for use
+        downloadedFiles.Add(csvData);
     }
 
-    public void StartTimeSeries()
+    // Start Button: Begin looping from the first timestep
+    public void OnStartButton()
     {
-        // Hide all previous time steps and show the current one
-        if (currentTimeStepIndex > 0)
+        currentTimeStepIndex = 0; // Start from the beginning
+        isLooping = true; // Enable looping
+        isPaused = false; // Reset pause state
+        StopAllCoroutines(); // Stop any ongoing actions
+        StartCoroutine(LoopThroughTimeSteps());
+    }
+
+    // Continue Button: Resume looping from the current timestep
+    public void OnContinueButton()
+    {
+        if (isPaused)
         {
-            HidePointCloud(currentTimeStepIndex - 1);
+            isLooping = true; // Enable looping
+            isPaused = false; // Reset pause state
+            StopAllCoroutines(); // Stop any ongoing actions
+            StartCoroutine(LoopThroughTimeSteps());
         }
-
-        ShowPointCloud(currentTimeStepIndex);
-
-        currentTimeStepIndex++;
-        if (currentTimeStepIndex >= downloadedFiles.Count)
+        else
         {
-            currentTimeStepIndex = 0; // Reset to the first timestep if at the end
+            Debug.LogWarning("Continue button pressed without being paused.");
         }
     }
 
-    private void ShowPointCloud(int index)
+    // Next Button: Display the next timestep and hide the current one
+    public void OnNextButton()
     {
-        if (index < downloadedFiles.Count)
+        StopAllCoroutines(); // Stop any ongoing actions
+        isLooping = false; // Stop looping
+        isPaused = false; // Reset pause state
+        IncrementTimeStep(1);
+        DisplayCurrentTimeStep();
+    }
+
+    // Back Button: Display the previous timestep and hide the current one
+    public void OnBackButton()
+    {
+        StopAllCoroutines(); // Stop any ongoing actions
+        isLooping = false; // Stop looping
+        isPaused = false; // Reset pause state
+        IncrementTimeStep(-1);
+        DisplayCurrentTimeStep();
+    }
+
+    // Refresh Button: Reset to the first timestep
+    public void OnRefreshButton()
+    {
+        StopAllCoroutines(); // Stop any ongoing actions
+        isLooping = false; // Stop looping
+        isPaused = false; // Reset pause state
+        currentTimeStepIndex = 0;
+        DisplayCurrentTimeStep();
+    }
+
+    // Pause Button: Pause the looping
+    public void OnPauseButton()
+    {
+        StopAllCoroutines(); // Stop any ongoing actions
+        isLooping = false; // Stop looping
+        isPaused = true; // Enable pause state
+        Debug.Log("Loop paused.");
+    }
+
+    // Coroutine to loop through timesteps
+    private IEnumerator LoopThroughTimeSteps()
+    {
+        while (isLooping)
         {
-            // Create a new GameObject for the current time step's point cloud
-            GameObject pointCloud = pointCloudImporter.ImportPointCloudFromData(downloadedFiles[index]);
-            pointCloudObjects.Add(pointCloud);  // Store reference to the created GameObject
-            Debug.Log($"Showing point cloud for timestep {index + 1}");
+            DisplayCurrentTimeStep();
+            yield return new WaitForSeconds(4f); // Wait for 4 seconds
+            IncrementTimeStep(1); // Move to the next timestep
         }
     }
 
-    private void HidePointCloud(int index)
+    // Display only the current timestep
+    private void DisplayCurrentTimeStep()
     {
-        if (index < pointCloudObjects.Count)
+        HideAllPointClouds(); // Ensure all timesteps are hidden
+
+        if (currentTimeStepIndex < downloadedFiles.Count)
         {
-            // Hide the GameObject for the previous time step
-            GameObject previousPointCloud = pointCloudObjects[index];
-            previousPointCloud.SetActive(false);  // Disable the GameObject
-            Debug.Log($"Hiding point cloud for timestep {index + 1}");
+            if (currentTimeStepIndex < pointCloudObjects.Count)
+            {
+                pointCloudObjects[currentTimeStepIndex].SetActive(true);
+            }
+            else
+            {
+                GameObject pointCloud = pointCloudImporter.ImportPointCloudFromData(downloadedFiles[currentTimeStepIndex]);
+                pointCloudObjects.Add(pointCloud);
+                pointCloud.SetActive(true);
+            }
+            Debug.Log($"Displaying timestep {currentTimeStepIndex + 1}");
         }
+    }
+
+    // Hide all point clouds
+    private void HideAllPointClouds()
+    {
+        foreach (GameObject pointCloud in pointCloudObjects)
+        {
+            if (pointCloud != null)
+            {
+                pointCloud.SetActive(false);
+            }
+        }
+    }
+
+    // Increment timestep index 
+    private void IncrementTimeStep(int step)
+    {
+        currentTimeStepIndex = (currentTimeStepIndex + step + downloadedFiles.Count) % downloadedFiles.Count;
+        Debug.Log($"Current timestep index: {currentTimeStepIndex}");
     }
 
     [System.Serializable]
