@@ -13,7 +13,7 @@ The following REQUIRED features are completed:
 **CSV File Upload**
 - [X] Users can upload one or more CSV files at a time.
 - [X] Each file upload is verified for size constraints to prevent overloading the server.
-- [X] ploaded files are stored in a designated uploads folder on the server.
+- [X] Uploaded files are stored in a designated uploads folder on the server.
 
 ## Application Features
 - Improve the Webpage Design: Customize the UI to enhance user experience and make the page visually appealing.
