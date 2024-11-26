@@ -15,7 +15,7 @@ The following REQUIRED features are completed:
 - [X] Each file upload is verified for size constraints to prevent overloading the server.
 - [X] Uploaded files are stored in a designated uploads folder on the server.
 
-## Application Features
+## Future Improvement
 - Improve the Webpage Design: Customize the UI to enhance user experience and make the page visually appealing.
 - Enhanced Unity Integration: Expand the functionality to Unity
 
