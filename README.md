@@ -12,4 +12,4 @@ This Unity project visualizes point cloud datasets in a time-series format withi
 - Team 6: Hidden Figures 2.0
 - Ìdùnnúolùwà Adénìjí, Maria Santos Perez, Habiba Morsy, Kiara Bowen
 
-*Review other branches for more information
+## *Review other branches for more information
