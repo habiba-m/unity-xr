@@ -7,6 +7,6 @@ This Unity project visualizes point cloud datasets in a time-series format withi
 - Meta Quest headset with Quest Link enabled
 - A server hosting .csv files formatted as ssxyz
 
-## Contributors
+## Team Info
 - [Team 6 Hidden Figures 2.0]
 - [Ìdùnnúolùwà Adénìjí, Maria Santos Perez, Habiba Morsy, Kiara Bowen]
