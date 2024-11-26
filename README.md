@@ -1,5 +1,3 @@
-# unity-xr
-
 # File Importer
 
 This branch contains the `file-importer` module designed to import and visualize CSV data as point clouds in Unity. The code provides functionality to handle large datasets, convert them into meshes, and render them with materials for further use in 3D applications.
