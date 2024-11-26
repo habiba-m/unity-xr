@@ -6,7 +6,8 @@ This Unity project visualizes point cloud datasets in a time-series format withi
 - Unity Editor (version 2020.3 or later recommended)
 - Meta Quest headset with Quest Link enabled
 - A server hosting .csv files formatted as ssxyz
+- IDE (e.g Visual Studio Code)
 
 ## Team Info
-- [Team 6 Hidden Figures 2.0]
-- [Ìdùnnúolùwà Adénìjí, Maria Santos Perez, Habiba Morsy, Kiara Bowen]
+- Team 6: Hidden Figures 2.0
+- Ìdùnnúolùwà Adénìjí, Maria Santos Perez, Habiba Morsy, Kiara Bowen
