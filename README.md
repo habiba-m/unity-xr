@@ -20,5 +20,8 @@ The following REQUIRED features are completed:
 - Enhanced Unity Integration: Expand the functionality to Unity
 
 ## Picture Demo
+
+![Kapture 2024-11-27 at 15 46 01](https://github.com/user-attachments/assets/ba95c9d2-c3a2-4132-97fe-e73cc3d1bfbf)
+
 ![Screen Shot 2024-10-01 at 7 15 51 PM](https://github.com/user-attachments/assets/53707308-bf9a-45f5-9b23-25d478ca9cdb)
 
