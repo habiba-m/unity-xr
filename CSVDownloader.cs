@@ -1,35 +1,81 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Networking;
-using System.Collections;
 using System.Collections.Generic;
+using System.Collections;
+using TMPro;
 
 public class CSVDownloader : MonoBehaviour
 {
     public string flaskServerURL = "http://localhost:5000";
-    public Button startButton, nextButton, backButton, refreshButton, pauseButton, continueButton;
+    public Button startButton;
+    public TMP_Dropdown scalarDropdown; 
+    public TextMeshProUGUI timestepCounter; 
+    public Button playButton, pauseButton, nextButton, backButton, refreshButton;
+    public int headerFontSize = 10;
+    public int optionFontSize = 10;
 
     private List<string> downloadedFiles = new List<string>();
     private PointCloudImporter pointCloudImporter;
-    private List<GameObject> pointCloudObjects = new List<GameObject>();
-    private int currentTimeStepIndex = 0;
-    private bool isLooping = false; // Flag to control the loop
-    private bool isPaused = false; // Flag to control pause state
-
+    private Coroutine playbackCoroutine;
+    private bool isPlaying = false;
+    private bool isPointCloudInitialized = false;
+    private int currentTimestep = 0;
+    private int selectedScalarIndex = 0;
     void Start()
     {
         pointCloudImporter = FindObjectOfType<PointCloudImporter>();
+        startButton.onClick.AddListener(OnStartButton);
+
         StartCoroutine(FetchFileList());
 
-        // Attach button listeners
-        startButton.onClick.AddListener(OnStartButton);
-        nextButton.onClick.AddListener(OnNextButton);
-        backButton.onClick.AddListener(OnBackButton);
-        refreshButton.onClick.AddListener(OnRefreshButton);
-        pauseButton.onClick.AddListener(OnPauseButton);
-        continueButton.onClick.AddListener(OnContinueButton);
+        TMP_Text headerText = scalarDropdown.captionText;
+        playButton.onClick.AddListener(OnPlay);
+        pauseButton.onClick.AddListener(OnPause);
+        nextButton.onClick.AddListener(OnNext);
+        backButton.onClick.AddListener(OnBack);
+        refreshButton.onClick.AddListener(OnRefresh);
+        scalarDropdown.onValueChanged.AddListener(OnScalarDropdownChanged);
+
+        UpdateTimestepCounter(); 
+        scalarDropdown.value = selectedScalarIndex;
+        if (headerText != null)
+        {
+            headerText.fontSize = headerFontSize;
+        }
+
+        foreach (var item in scalarDropdown.options)
+        {
+            TMP_Text optionText = scalarDropdown.itemText;
+            if (optionText != null)
+            {
+                optionText.fontSize = optionFontSize;
+            }
+        }
+    }
+    private void OnScalarDropdownChanged(int index)
+    {
+        selectedScalarIndex = index; 
+        Debug.Log($"Dropdown changed to index {index}");
     }
 
+    public int GetSelectedScalarIndex()
+    {
+        return selectedScalarIndex;
+    }
+    private void UpdateTimestepCounter()
+    {
+        if (timestepCounter != null)
+        {
+            timestepCounter.text = $"Timestep: {currentTimestep + 1}/{downloadedFiles.Count}";
+        }
+        else
+        {
+            Debug.LogWarning("Timestep counter UI not set.");
+        }
+    }
+
+    // Fetch file list from server
     IEnumerator FetchFileList()
     {
         string url = $"{flaskServerURL}/list-files";
@@ -38,12 +84,11 @@ public class CSVDownloader : MonoBehaviour
 
         if (request.result != UnityWebRequest.Result.Success)
         {
-            Debug.LogError("Error fetching file list: " + request.error);
+            Debug.LogError($"Error fetching file list: {request.error}");
             yield break;
         }
 
-        string jsonResponse = request.downloadHandler.text;
-        FileListResponse fileList = JsonUtility.FromJson<FileListResponse>(jsonResponse);
+        FileListResponse fileList = JsonUtility.FromJson<FileListResponse>(request.downloadHandler.text);
 
         foreach (string fileName in fileList.files)
         {
@@ -51,6 +96,7 @@ public class CSVDownloader : MonoBehaviour
         }
     }
 
+    // Download a CSV file
     IEnumerator DownloadCSV(string fileName)
     {
         string encodedFileName = UnityWebRequest.EscapeURL(fileName);
@@ -61,133 +107,115 @@ public class CSVDownloader : MonoBehaviour
 
         if (request.result != UnityWebRequest.Result.Success)
         {
-            Debug.LogError("Error downloading file: " + request.error);
+            Debug.LogError($"Error downloading file: {request.error}");
             yield break;
         }
 
-        string csvData = request.downloadHandler.text;
-        downloadedFiles.Add(csvData);
+        downloadedFiles.Add(request.downloadHandler.text);
     }
 
-    // Start Button: Begin looping from the first timestep
+    
     public void OnStartButton()
     {
-        currentTimeStepIndex = 0; // Start from the beginning
-        isLooping = true; // Enable looping
-        isPaused = false; // Reset pause state
-        StopAllCoroutines(); // Stop any ongoing actions
-        StartCoroutine(LoopThroughTimeSteps());
-    }
+        if (isPointCloudInitialized) return;
 
-    // Continue Button: Resume looping from the current timestep
-    public void OnContinueButton()
-    {
-        if (isPaused)
+        if (downloadedFiles.Count > 0)
         {
-            isLooping = true; // Enable looping
-            isPaused = false; // Reset pause state
-            StopAllCoroutines(); // Stop any ongoing actions
-            StartCoroutine(LoopThroughTimeSteps());
+            Debug.Log("Initializing point cloud from OnStartButton...");
+            string csvData = downloadedFiles[0]; 
+            pointCloudImporter.ImportPointCloudFromData(csvData);
+            isPointCloudInitialized = true;
+            UpdateTimestepCounter();
         }
         else
         {
-            Debug.LogWarning("Continue button pressed without being paused.");
+            Debug.LogWarning("No files downloaded yet.");
         }
     }
 
-    // Next Button: Display the next timestep and hide the current one
-    public void OnNextButton()
+    private void OnPlay()
     {
-        StopAllCoroutines(); // Stop any ongoing actions
-        isLooping = false; // Stop looping
-        isPaused = false; // Reset pause state
-        IncrementTimeStep(1);
-        DisplayCurrentTimeStep();
-    }
-
-    // Back Button: Display the previous timestep and hide the current one
-    public void OnBackButton()
-    {
-        StopAllCoroutines(); // Stop any ongoing actions
-        isLooping = false; // Stop looping
-        isPaused = false; // Reset pause state
-        IncrementTimeStep(-1);
-        DisplayCurrentTimeStep();
-    }
-
-    // Refresh Button: Reset to the first timestep
-    public void OnRefreshButton()
-    {
-        StopAllCoroutines(); // Stop any ongoing actions
-        isLooping = false; // Stop looping
-        isPaused = false; // Reset pause state
-        currentTimeStepIndex = 0;
-        DisplayCurrentTimeStep();
-    }
-
-    // Pause Button: Pause the looping
-    public void OnPauseButton()
-    {
-        StopAllCoroutines(); // Stop any ongoing actions
-        isLooping = false; // Stop looping
-        isPaused = true; // Enable pause state
-        Debug.Log("Loop paused.");
-    }
-
-    // Coroutine to loop through timesteps
-    private IEnumerator LoopThroughTimeSteps()
-    {
-        while (isLooping)
+        if (!isPlaying && isPointCloudInitialized)
         {
-            DisplayCurrentTimeStep();
-            yield return new WaitForSeconds(4f); // Wait for 4 seconds
-            IncrementTimeStep(1); // Move to the next timestep
+            isPlaying = true;
+            playbackCoroutine = StartCoroutine(PlayTimelapse());
         }
     }
 
-    // Display only the current timestep
-    private void DisplayCurrentTimeStep()
+    private void OnPause()
     {
-        HideAllPointClouds(); // Ensure all timesteps are hidden
-
-        if (currentTimeStepIndex < downloadedFiles.Count)
+        if (isPlaying)
         {
-            if (currentTimeStepIndex < pointCloudObjects.Count)
+            isPlaying = false;
+            StopCoroutine(playbackCoroutine);
+        }
+    }
+
+    private void OnNext()
+    {
+        if (isPointCloudInitialized && currentTimestep < downloadedFiles.Count - 1)
+        {
+            currentTimestep++;
+            ShowTimestep(currentTimestep);
+        }
+    }
+
+    private void OnBack()
+    {
+        if (isPointCloudInitialized && currentTimestep > 0)
+        {
+            currentTimestep--;
+            ShowTimestep(currentTimestep);
+        }
+    }
+
+    private void OnRefresh()
+    {
+        if (isPointCloudInitialized)
+        {
+              currentTimestep = 0;
+            ShowTimestep(currentTimestep);
+        }
+    }
+
+    private IEnumerator PlayTimelapse()
+    {
+        while (isPlaying)
+        {
+            if (currentTimestep < downloadedFiles.Count - 1)
             {
-                pointCloudObjects[currentTimeStepIndex].SetActive(true);
+                currentTimestep++;
+                ShowTimestep(currentTimestep);
+                yield return new WaitForSeconds(1f); 
             }
             else
             {
-                GameObject pointCloud = pointCloudImporter.ImportPointCloudFromData(downloadedFiles[currentTimeStepIndex]);
-                pointCloudObjects.Add(pointCloud);
-                pointCloud.SetActive(true);
+                isPlaying = false;
             }
-            Debug.Log($"Displaying timestep {currentTimeStepIndex + 1}");
         }
     }
 
-    // Hide all point clouds
-    private void HideAllPointClouds()
+    private void ShowTimestep(int timestepIndex)
     {
-        foreach (GameObject pointCloud in pointCloudObjects)
+        if (timestepIndex >= 0 && timestepIndex < downloadedFiles.Count)
         {
-            if (pointCloud != null)
-            {
-                pointCloud.SetActive(false);
-            }
+            currentTimestep = timestepIndex;
+            string csvData = downloadedFiles[currentTimestep];
+            pointCloudImporter.ImportPointCloudFromData(csvData);
+            pointCloudImporter.DisplayCurrentSelection();
+            UpdateTimestepCounter();
+            Debug.Log($"Displaying timestep {currentTimestep + 1} with scalar index {GetSelectedScalarIndex()}.");
+        }
+        else
+        {
+            Debug.LogWarning("Invalid timestep index.");
         }
     }
 
-    // Increment timestep index 
-    private void IncrementTimeStep(int step)
-    {
-        currentTimeStepIndex = (currentTimeStepIndex + step + downloadedFiles.Count) % downloadedFiles.Count;
-        Debug.Log($"Current timestep index: {currentTimeStepIndex}");
-    }
+}
 
-    [System.Serializable]
-    public class FileListResponse
-    {
-        public List<string> files;
-    }
+[System.Serializable]
+public class FileListResponse
+{
+    public List<string> files;
 }
