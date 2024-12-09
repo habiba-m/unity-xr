@@ -1,128 +1,127 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
-using System.IO;
+using UnityEngine.UI;
 
 public class PointCloudImporter : MonoBehaviour
 {
-    public Material mat; // Material to apply to the mesh
-    public int nPer = 64000; // Number of points per mesh
+    public Material mat; 
+    public TMP_Dropdown scalarDropdown; 
+    private string[] headers; 
+    private string[][] csvData; 
 
-    // Function to import points from a CSV file
-    public void ImportPointCloudFromFile(string path)
+    private GameObject currentPointCloud; 
+    private int currentTimestep = 0; 
+
+
+    // Import CSV and parse data
+    public void ImportPointCloudFromData(string csvText)
     {
-        if (!File.Exists(path))
+  
+        string[] lines = csvText.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+        if (lines.Length <= 1) 
         {
-            Debug.LogWarning($"File not found: {path}");
+            Debug.LogWarning("CSV contains no valid data.");
             return;
         }
 
-        string[] lines = File.ReadAllLines(path);
-        if (lines.Length <= 1) // Ensure there's data to read (excluding the header)
+        headers = lines[0].Split(','); 
+        csvData = new string[lines.Length - 1][];
+
+        for (int i = 1; i < lines.Length; i++)
         {
-            Debug.LogWarning("No data found in the CSV file.");
-            return;
+            csvData[i - 1] = lines[i].Split(',');
         }
 
-        int totalPoints = lines.Length - 1; // Exclude the header line
+        PopulateDropdown();
+        DisplayPointCloud(0); 
+    
+    }
+
+    private void PopulateDropdown()
+    {
+        scalarDropdown.ClearOptions();
+        List<string> options = new List<string>();
+
+        
+        for (int i = 0; i < headers.Length - 3; i++)
+        {
+            options.Add(headers[i]);
+        }
+
+        scalarDropdown.AddOptions(options);
+        scalarDropdown.onValueChanged.AddListener(OnScalarColumnChanged);
+    }
+
+   
+    private void OnScalarColumnChanged(int index)
+    {
+        scalarDropdown.SetValueWithoutNotify(index);
+        DisplayPointCloud(index);
+    }
+
+    public void SetDropdownSelection(int index)
+    {
+        scalarDropdown.SetValueWithoutNotify(index); 
+        OnScalarColumnChanged(index); 
+    }
+
+    public void DisplayCurrentSelection()
+    {
+        CSVDownloader csvDownloader = FindObjectOfType<CSVDownloader>();
+        int scalarIndex = csvDownloader.GetSelectedScalarIndex();
+        scalarDropdown.SetValueWithoutNotify(scalarIndex);  
+        DisplayPointCloud(scalarIndex);
+    }
+
+
+    // Create and display the point cloud
+    private void DisplayPointCloud(int scalarIndex)
+    {
+       
+        if (currentPointCloud != null)
+        {
+            Destroy(currentPointCloud);
+        }
+
+        int totalPoints = csvData.Length;
         Vector3[] points = new Vector3[totalPoints];
         Color[] colors = new Color[totalPoints];
         int[] indices = new int[totalPoints];
 
-        float[] scalarNum = new float[totalPoints];
-        float minScalarNum = float.MaxValue;
-        float maxScalarNum = float.MinValue;
+        float minValue = float.MaxValue;
+        float maxValue = float.MinValue;
 
         for (int i = 0; i < totalPoints; i++)
         {
-            string[] values = lines[i + 1].Split(',');
-            if (values.Length < 5) // Ensure there are enough values to parse
-            {
-                Debug.LogWarning($"Line {i + 1} does not contain enough values: {string.Join(", ", values)}");
-                continue; // Skip this iteration if not enough values
-            }
+            string[] row = csvData[i];
+            if (row.Length < 5) continue; 
 
-            // Parse x, y, z coordinates
-            if (float.TryParse(values[2], out float x) &&
-                float.TryParse(values[3], out float y) &&
-                float.TryParse(values[4], out float z))
+          
+            if (float.TryParse(row[headers.Length - 3], out float x) &&
+                float.TryParse(row[headers.Length - 2], out float y) &&
+                float.TryParse(row[headers.Length - 1], out float z))
             {
                 points[i] = new Vector3(x, y, z);
-                scalarNum[i] = float.Parse(values[0]); // Assuming scalar value is always present at index 0
 
-                // Update min and max scalar values
-                minScalarNum = Mathf.Min(minScalarNum, scalarNum[i]);
-                maxScalarNum = Mathf.Max(maxScalarNum, scalarNum[i]);
+               
+                if (float.TryParse(row[scalarIndex], out float scalar))
+                {
+                    minValue = Mathf.Min(minValue, scalar);
+                    maxValue = Mathf.Max(maxValue, scalar);
+                    colors[i] = RemapColor(scalar, minValue, maxValue);
+                }
 
-                // Color mapping based on scalar value
-                colors[i] = RemapColor(scalarNum[i]);
                 indices[i] = i;
-            }
-            else
-            {
-                Debug.LogWarning($"Could not parse coordinates on line {i + 1}: {string.Join(", ", values)}");
             }
         }
 
-        // Create and assign the mesh
+       
         CreateMesh(points, colors, indices);
     }
 
-    // New method to import point cloud from CSV data directly
-    public GameObject ImportPointCloudFromData(string csvData)
-    {
-        // Split the CSV data into lines
-        string[] lines = csvData.Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
-        if (lines.Length <= 1) // Ensure there's data to read (excluding the header)
-        {
-            Debug.LogWarning("No data found in the provided CSV data.");
-            return null;
-        }
-
-        int totalPoints = lines.Length - 1; // Exclude the header line
-        Vector3[] points = new Vector3[totalPoints];
-        Color[] colors = new Color[totalPoints];
-        int[] indices = new int[totalPoints];
-
-        float[] scalarNum = new float[totalPoints];
-        float minScalarNum = float.MaxValue;
-        float maxScalarNum = float.MinValue;
-
-        for (int i = 0; i < totalPoints; i++)
-        {
-            string[] values = lines[i + 1].Split(',');
-            if (values.Length < 5) // Ensure there are enough values to parse
-            {
-                Debug.LogWarning($"Line {i + 1} does not contain enough values: {string.Join(", ", values)}");
-                continue; // Skip this iteration if not enough values
-            }
-
-            // Parse x, y, z coordinates
-            if (float.TryParse(values[2], out float x) &&
-                float.TryParse(values[3], out float y) &&
-                float.TryParse(values[4], out float z))
-            {
-                points[i] = new Vector3(x, y, z);
-                scalarNum[i] = float.Parse(values[0]); // Assuming scalar value is always present at index 0
-
-                // Update min and max scalar values
-                minScalarNum = Mathf.Min(minScalarNum, scalarNum[i]);
-                maxScalarNum = Mathf.Max(maxScalarNum, scalarNum[i]);
-
-                // Color mapping based on scalar value
-                colors[i] = RemapColor(scalarNum[i]);
-                indices[i] = i;
-            }
-            else
-            {
-                Debug.LogWarning($"Could not parse coordinates on line {i + 1}: {string.Join(", ", values)}");
-            }
-        }
-
-        // Create and return the mesh GameObject
-        return CreateMesh(points, colors, indices);
-    }
-
-    private GameObject CreateMesh(Vector3[] points, Color[] colors, int[] indices)
+    // Create the point cloud mesh
+    private void CreateMesh(Vector3[] points, Color[] colors, int[] indices)
     {
         Mesh mesh = new Mesh
         {
@@ -130,42 +129,33 @@ public class PointCloudImporter : MonoBehaviour
             vertices = points,
             colors = colors,
         };
-
         mesh.SetIndices(indices, MeshTopology.Points, 0);
-
-        // Create the GameObject for the point cloud
-        GameObject pointCloudObject = new GameObject("PointCloud");
-
-        MeshFilter meshFilter = pointCloudObject.AddComponent<MeshFilter>();
+        currentPointCloud = new GameObject("PointCloud");
+        MeshFilter meshFilter = currentPointCloud.AddComponent<MeshFilter>();
         meshFilter.mesh = mesh;
 
-        MeshRenderer meshRenderer = pointCloudObject.AddComponent<MeshRenderer>();
-        if (mat == null)
-        {
-            mat = new Material(Shader.Find("Standard")); // Assign a default material if none is provided
-        }
-        meshRenderer.material = mat;
+        MeshRenderer meshRenderer = currentPointCloud.AddComponent<MeshRenderer>();
+        meshRenderer.material = mat ?? new Material(Shader.Find("Standard"));
 
-        // Optionally set the parent to keep the hierarchy clean
-        pointCloudObject.transform.SetParent(this.transform);
-
-        return pointCloudObject; // Return the created GameObject
+        currentPointCloud.transform.SetParent(this.transform, false);
     }
 
-    private Color RemapColor(float radius)
+    // Map scalar value to color
+    private Color RemapColor(float value, float minValue, float maxValue)
     {
-        Color minColor = new Color(1, 0, 0); // Red
-        Color maxColor = new Color(1, 1, 0); // Yellow
-
-        float minRadius = 0; // Set your min radius based on your data
-        float maxRadius = 1; // Set your max radius based on your data
-
-        float remappedValue = remap(minRadius, maxRadius, 0, 1, radius);
-        return Color.Lerp(minColor, maxColor, remappedValue);
+        Color minColor = Color.red;
+        Color maxColor = Color.yellow;
+        float t = Mathf.InverseLerp(minValue, maxValue, value);
+        return Color.Lerp(minColor, maxColor, t);
+    }
+    public void SetTimestep(int timestep)
+    {
+        currentTimestep = timestep;
+        DisplayPointCloud(currentTimestep);
     }
 
-    private float remap(float a, float b, float c, float d, float x)
+    public int GetTotalTimesteps()
     {
-        return c + (x - a) * (d - c) / (b - a);
+        return csvData.Length;
     }
 }
